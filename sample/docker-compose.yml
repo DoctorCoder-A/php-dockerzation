@@ -1,0 +1,124 @@
+services:
+    app:
+        build:
+            args:
+                user: ${USER}
+                uid: 1000
+            context: .
+            dockerfile: docker/app.dockerfile
+        image: ${PROJECT_NAME}-app
+        container_name: ${PROJECT_NAME}-app
+        extra_hosts:
+            - "host.docker.internal:host-gateway"
+        restart: unless-stopped
+        depends_on:
+            - db
+        volumes:
+            - .:/var/www/html:delegated
+            - ./docker/php/conf.d/xdebug.ini:/usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini
+            - ./docker/php/conf.d/error_reporting.ini:/usr/local/etc/php/conf.d/error_reporting.ini
+        networks:
+            - network
+
+    nginx:
+        image: nginx:1.17-alpine
+        container_name: ${PROJECT_NAME}-nginx
+        restart: unless-stopped
+        ports:
+            - '${WEB_SERVER_PORT:-8080}:80'
+        volumes:
+            - .:/var/www/html
+            - ./docker/nginx:/etc/nginx/conf.d
+            - ./docker/nginx/log:/var/log/nginx
+        networks:
+            - network
+#postgres
+        #   db:
+        #     image: 'postgres'
+        #     container_name: ${PROJECT_NAME}-db
+        #     restart: unless-stopped
+        #     ports:
+        #       - '${FORWARD_DB_PORT:-5432}:5432'
+        #     environment:
+        #       # MYSQL_ROOT_PASSWORD: '${DB_PASSWORD}'
+        #       POSTGRES_DB: '${DB_DATABASE}'
+        #       POSTGRES_USER: '${DB_USERNAME}'
+        #       POSTGRES_PASSWORD: '${DB_PASSWORD}'
+        #       # MYSQL_ALLOW_EMPTY_PASSWORD: 'yes'
+        #     volumes:
+        #       - '.:/var/www/html'
+        #       - 'db_pgsql:/var/lib/pgsql'
+        #     networks:
+        #       - network
+#pgadmin
+        #   pgadmin:
+        #     container_name: ${PROJECT_NAME}-pgadmin
+        #     image: dpage/pgadmin4:7.2
+        #     environment:
+        #       PGADMIN_DEFAULT_EMAIL: "admin@admin.admin"
+        #       PGADMIN_DEFAULT_PASSWORD: '${DB_PASSWORD}'
+        #       PGADMIN_CONFIG_SERVER_MODE: "False"
+        #     volumes:
+        #       - pgadmin-data:/var/lib/pgadmin
+        #     ports:
+        #       - "5050:80"
+        #     restart: unless-stopped
+        # networks:
+        #   - network
+# mysql
+    db:
+        image: 'mysql:5.7.29'
+        container_name: ${PROJECT_NAME}-db
+        restart: unless-stopped
+        ports:
+          - '${FORWARD_DB_PORT:-3306}:3306'
+        environment:
+          MYSQL_ROOT_PASSWORD: '${DB_PASSWORD}'
+          MYSQL_DATABASE: '${DB_DATABASE}'
+          MYSQL_USER: '${DB_USERNAME}'
+          MYSQL_PASSWORD: '${DB_PASSWORD}'
+          MYSQL_ALLOW_EMPTY_PASSWORD: 'yes'
+        volumes:
+          - '.:/var/www/html'
+          - 'db_mysql:/var/lib/mysql'
+        networks:
+          - network
+# phpmyadmin
+    phpmyadmin:
+      image: phpmyadmin/phpmyadmin:latest
+      container_name: ${PROJECT_NAME}-phpmyadmin
+      restart: unless-stopped
+      ports:
+        - "8080:80"
+      environment:
+        - PMA_HOST=${DB_HOST}
+        - PMA_USER=${DB_USERNAME}
+        - PMA_PASSWORD=${DB_PASSWORD}
+        - UPLOAD_LIMIT=30M
+      depends_on:
+        - db
+      networks:
+        - network
+#mailhog
+    # mailhog:
+    #     image: mailhog/mailhog
+    #     container_name: ${PROJECT_NAME}-mailhog
+    #     restart: unless-stopped
+    #     ports:
+    #         - 1025:1025 # smtp server
+    #         - 8025:8025 # web ui
+    #     networks:
+    #         - network
+networks:
+    network:
+        driver: bridge
+
+volumes:
+#postgres
+    #   pgadmin-data:
+    #       driver: local
+    #   db_pgsql:
+    #       driver: local
+#mysql
+    db_mysql:
+        driver: local
